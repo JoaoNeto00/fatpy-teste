@@ -18,11 +18,13 @@ class Fatpy(ttk.Frame):
             'Cliente', 'CNPJ', 'Local', 'Medidor', 
             'Leitura Anterior', 'Leitura Atual', 'Diferença', 
             'Fator', 'CONS.EM kWh', 'VALOR DO CONSUMO', 
-            'RATEIO DEMANDA', 'Fator Demanda', 'Bandeira Verde',
+            'RATEIO DEMANDA', 'Fator Demanda', 'Bandeira Verde','Bandeira Vermelha',
             'Fator Bandeira', 'VALOR A COBRAR'
         ]
+        
         self.nome_arquivo = ttk.StringVar()
         self.pular_linha = 0
+        
         # CONTROLE DE ABAS
         self.controle_abas = ttk.Notebook(self)
         self.aba1 = ttk.Frame(self.controle_abas, padding=(10, 10))
@@ -96,18 +98,36 @@ class Fatpy(ttk.Frame):
         
         df = pd.read_excel(file, skiprows=self.pular_linha)
         
+        # verificação se existe a primeira linha 
         if df.shape[0] == 0 or df.iloc[0].isnull().all():
             self.pular_linha = 1
             return
         
+        bandeiras = ["bandeira vermelha","bandeira verde"]
+    
+        bandeira_encontrada = False
+
         for coluna in self.todas_colunas:
-            if df.get(coluna) is None:
-                  
-                self.mostrar_msg(f'coluna {coluna} não foi encontrada')
-               
-                return False
-        
-       
+                
+                if coluna in df.columns:
+                    
+                    col_str = df[coluna].astype(str).str.lower()
+                    bandeira_encontrada = True
+                    
+                    if col_str.isin([b.lower() for b in bandeiras]).any():
+                        print(f'Coluna {coluna} contém uma das bandeiras!')
+                    else:
+                        print(f'Coluna {coluna} existe ------ OK')
+                
+                else:
+                    print(f"Coluna {coluna} não existe ------ ERROR ")
+
+        if  bandeira_encontrada is True:
+            
+             print('COLUNA NÃO ENCONTRADA --------- OK')
+             return False
+        else:
+            print("coluna  encontrda ------ ERROOOOOR")
             
         df['VALOR A COBRAR'] = df['VALOR A COBRAR'].round(2)
         df = df[df['VALOR A COBRAR'] != 0]
@@ -174,9 +194,13 @@ class Fatpy(ttk.Frame):
         
         df = pd.read_excel(self.arquivo_selecionado)
         
-        nm_fatura = int(self.fatura_energia.get())
-        taxa_variavel = float(self.taxa_variavel_energia.get())
-        taxa_fixa = float(self.taxa_fixa_energia.get())
+        #nm_fatura = int(self.fatura_energia.get())
+        #taxa_variavel = float(self.taxa_variavel_energia.get())
+        #taxa_fixa = float(self.taxa_fixa_energia.get())
+        
+        nm_fatura = 1
+        taxa_variavel = 1.18
+        taxa_fixa = 0.37
 
         total_kw = ((df['Leitura Atual'] - df['Leitura Anterior']) * df['Fator']) + (df['Fator Demanda'] + df['Fator Bandeira'])
 
@@ -187,7 +211,6 @@ class Fatpy(ttk.Frame):
         total_fatura.round(2)
         
         #adiconar coluna calculada 
-        
         
         img = Image('logo_docas.jpg')
 
@@ -205,10 +228,10 @@ class Fatpy(ttk.Frame):
             workbook_energia = load_workbook(filename='modelo energia.xlsx')
             sheet_energia = workbook_energia.active
             
+            sheet_energia.add_image(img, 'C1')
+            
             sheet_energia['D15'] = taxa_variavel
             sheet_energia['D30'] = taxa_fixa
-
-            sheet_energia.add_image(img, 'C1')
 
             nm_fatura = nm_fatura + 1
             sheet_energia['F6'] = nm_fatura
