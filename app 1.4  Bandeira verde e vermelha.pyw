@@ -18,7 +18,7 @@ class Fatpy(ttk.Frame):
             'Cliente', 'CNPJ', 'Local', 'Medidor', 
             'Leitura Anterior', 'Leitura Atual', 'Diferença', 
             'Fator', 'CONS.EM kWh', 'VALOR DO CONSUMO', 
-            'RATEIO DEMANDA', 'Fator Demanda', 'Bandeira Verde','Bandeira Vermelha',
+            'RATEIO DEMANDA', 'Fator Demanda',
             'Fator Bandeira', 'VALOR A COBRAR'
         ]
         
@@ -94,7 +94,7 @@ class Fatpy(ttk.Frame):
     
     def tratar_excel(self,file):
         
-        print("iniciando tratamento...")
+        print("iniciando tratamento")
         
         df = pd.read_excel(file, skiprows=self.pular_linha)
         
@@ -103,32 +103,14 @@ class Fatpy(ttk.Frame):
             self.pular_linha = 1
             return
         
-        bandeiras = ["bandeira vermelha","bandeira verde"]
-    
-        bandeira_encontrada = False
-
         for coluna in self.todas_colunas:
-                
-                if coluna in df.columns:
-                    
-                    col_str = df[coluna].astype(str).str.lower()
-                    bandeira_encontrada = True
-                    
-                    if col_str.isin([b.lower() for b in bandeiras]).any():
-                        print(f'Coluna {coluna} contém uma das bandeiras!')
-                    else:
-                        print(f'Coluna {coluna} existe ------ OK')
-                
-                else:
-                    print(f"Coluna {coluna} não existe ------ ERROR ")
-
-        if  bandeira_encontrada is True:
             
-             print('COLUNA NÃO ENCONTRADA --------- OK')
-             return False
-        else:
-            print("coluna  encontrda ------ ERROOOOOR")
-            
+            if df.get(coluna) is None:
+                
+                self.mostrar_msg(f'coluna {coluna} não foi encontrada')
+        
+                return False 
+                
         df['VALOR A COBRAR'] = df['VALOR A COBRAR'].round(2)
         df = df[df['VALOR A COBRAR'] != 0]
         df = df.dropna(subset=['VALOR A COBRAR'])
@@ -143,11 +125,9 @@ class Fatpy(ttk.Frame):
         df['Leitura Anterior'] = df['Leitura Anterior'].fillna(0)
         df['Leitura Atual'] = df['Leitura Atual'].fillna(0)
 
-        
-        
         df.to_excel(file, index=False)
 
-        print('tratamento concluido !! ')
+        print('tratamento ------- OK ')
         
     def selecionar_arquivo(self):
 
@@ -202,16 +182,22 @@ class Fatpy(ttk.Frame):
         taxa_variavel = 1.18
         taxa_fixa = 0.37
 
+        
         total_kw = ((df['Leitura Atual'] - df['Leitura Anterior']) * df['Fator']) + (df['Fator Demanda'] + df['Fator Bandeira'])
 
         total_taxa_variavel = total_kw * taxa_variavel
         total_taxa_fixo = total_kw * taxa_fixa
 
         total_fatura =total_taxa_fixo + total_taxa_variavel
-        total_fatura.round(2)
         
         #adiconar coluna calculada 
         
+        df['TOTAL CALCULADO'] = total_fatura.round(2)
+        
+        df.to_excel(self.arquivo_selecionado,index=False)
+     
+        Todos_ok = True
+    
         img = Image('logo_docas.jpg')
 
         colunas_necessarias = (zip(df['Cliente'], df['CNPJ'], df['Local'], df['Leitura Atual'],
@@ -270,8 +256,20 @@ class Fatpy(ttk.Frame):
             caminho_salvar = os.path.join(self.camimho_faturas, nome_fatura)
             workbook_energia.save(caminho_salvar)
             
-            print(f'fatura {nm_fatura} = {total_fatura}')
+            if (df['VALOR A COBRAR'].round(1) == df['TOTAL CALCULADO'].round(1)).all():
+                print('VALORES ------- OK')
+                print(f'{df["VALOR A COBRAR"].iloc[i]}')
+                print(f'{df["TOTAL CALCULADO"].iloc[i]}')
+                
+            else:
+                print('VALORES --------- EROOR')
+                Todos_ok = False
             
+        if Todos_ok:
+            self.mostrar_msg('TODOS OS VALORES ESTÃO OK') 
+        else:
+            self.mostrar_msg('existem valores incorrestos')
+        
         print('concluido')
 
 if __name__ == "__main__":
