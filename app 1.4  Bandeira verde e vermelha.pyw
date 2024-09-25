@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import ttkbootstrap as ttk
+import shutil
 from tkinter import filedialog, messagebox
 from openpyxl import load_workbook
 from ttkbootstrap.constants import *
@@ -23,7 +24,7 @@ class Fatpy(ttk.Frame):
         ]
         
         self.nome_arquivo = ttk.StringVar()
-        self.pular_linha = 0
+        self.pular_linha = 1
         
         # CONTROLE DE ABAS
         self.controle_abas = ttk.Notebook(self)
@@ -100,7 +101,7 @@ class Fatpy(ttk.Frame):
         
         # verificação se existe a primeira linha 
         if df.shape[0] == 0 or df.iloc[0].isnull().all():
-            self.pular_linha = 1
+            self.pular_linha = 0
             return
         
         for coluna in self.todas_colunas:
@@ -133,8 +134,8 @@ class Fatpy(ttk.Frame):
 
         self.arquivo_selecionado = filedialog.askopenfilename(
             filetypes=[("Arquivos Excel", "*.xlsx")])
+        
         self.nome_arquivo.set(self.arquivo_selecionado.split("/")[-1])
-        #print(self.arquivo_selecionado)
 
         return self.arquivo_selecionado
 
@@ -164,6 +165,7 @@ class Fatpy(ttk.Frame):
     def gerar_fatura_energia(self):
         
         self.cancelar = False
+        
         self.camimho_faturas = self.selecionar_diretorio()
 
         tratado = self.tratar_excel(self.arquivo_selecionado)
@@ -202,6 +204,7 @@ class Fatpy(ttk.Frame):
 
         colunas_necessarias = (zip(df['Cliente'], df['CNPJ'], df['Local'], df['Leitura Atual'],
                    df['Leitura Anterior'], df['Fator'], df['Fator Demanda'], df['VALOR A COBRAR'],df['Fator Bandeira']))
+        
         
         print('gerando faturas..')
         
@@ -256,13 +259,17 @@ class Fatpy(ttk.Frame):
             caminho_salvar = os.path.join(self.camimho_faturas, nome_fatura)
             workbook_energia.save(caminho_salvar)
             
-            if (df['VALOR A COBRAR'].round(1) == df['TOTAL CALCULADO'].round(1)).all():
-                print('VALORES ------- OK')
-                print(f'{df["VALOR A COBRAR"].iloc[i]}')
-                print(f'{df["TOTAL CALCULADO"].iloc[i]}')
-                
+            valor_a_cobrar = round(df['VALOR A COBRAR'].iloc[i], 1)
+            total_calculado = round(df['TOTAL CALCULADO'].iloc[i], 1)
+            
+            if valor_a_cobrar == total_calculado:
+                print('VALORES ------- OK')             
             else:
                 print('VALORES --------- EROOR')
+                
+                print(f'VALOR A COBRAR:  {df["VALOR A COBRAR"].iloc[i]}')
+                print(f'TOTAL CALCULADO: {df["TOTAL CALCULADO"].iloc[i]}')
+                
                 Todos_ok = False
             
         if Todos_ok:
